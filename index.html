@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>מעבדת VR – מערכות הידראוליות ופנאומטיות · APEX TRAINING</title>
+<meta name="description" content="מעבדה וירטואלית במערכות הידראוליות ופנאומטיות למשקפי Meta Quest: מפעילים שסתומים בידיים ורואים את הלחץ והזרימה.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;background:#0e1522;color:#e7edf6;font-family:Heebo,Arial,sans-serif;overflow:hidden}
+  #stage canvas{display:block;outline:none}
+  #ui{position:fixed;inset:0 0 auto 0;display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;padding:12px 18px;background:linear-gradient(180deg,rgba(10,17,30,.92),rgba(10,17,30,.55) 75%,transparent);z-index:5}
+  #ui img{height:40px;background:#fff;border-radius:8px;padding:3px 6px}
+  #ui .t b{display:block;font-size:20px;color:#fff}#ui .t small{color:#93c5fd;font-size:14px}
+  #enterVR{margin-inline-start:auto;font:800 20px Heebo,Arial;padding:12px 26px;border-radius:14px;border:0;background:#0b72d9;color:#fff;cursor:pointer;box-shadow:0 6px 20px rgba(11,114,217,.45)}
+  #enterVR:disabled{background:#334155;color:#cbd5e1;box-shadow:none;cursor:default;font-size:15px;font-weight:600}
+  #help{position:fixed;bottom:12px;right:12px;left:12px;text-align:center;font-size:14px;color:#cbd5e1;z-index:5;pointer-events:none}
+  #help kbd{background:#1f2a3a;border:1px solid #334155;border-radius:5px;padding:0 6px;font-family:inherit}
+  #loading{position:fixed;inset:0;display:grid;place-items:center;font-size:22px;color:#93c5fd;background:#0e1522;z-index:9}
+  body.ready #loading{display:none}body.xr #ui,body.xr #help{display:none}
+  #err{position:fixed;bottom:40px;left:12px;right:12px;color:#fecaca;font-size:14px;z-index:10;text-align:center}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="ui">
+  <img src="assets/logo.png" alt="APEX TRAINING">
+  <div class="t"><b>מעבדה במערכות הידראוליות ופנאומטיות</b><small>מעבדת VR · ידיים או בקרים · Meta Quest 3</small></div>
+  <button id="enterVR" type="button" disabled>בודק תמיכה ב-VR…</button>
+</div>
+<div id="help">מחשב: <kbd>גרירה</kbd> הסתכלות · <kbd>W A S D</kbd> או <kbd>גלגלת</kbd> הליכה · לחיצה על רכיב – מה הוא עושה · לחיצה וגרירה של ידיות, מחוונים וכפתורים</div>
+<div id="loading">טוען את המעבדה…</div>
+<div id="err"></div>
+<script>
+  window.LABS=[];window.APP={};
+  window.addEventListener('error',e=>{const d=document.getElementById('err');if(d)d.textContent='שגיאה: '+(e.message||e);});
+  /* load scripts in order: libraries → engine → configuration → labs → platform */
+  (function(){const base=['vendor/three-vr.js','engine/engine.js','stations.js'];
+    const plat=['platform/sch_css.js','platform/ui.js','platform/board.js','platform/station.js','platform/platform.js'];
+    const load=src=>new Promise((ok,bad)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>bad(new Error('לא נטען: '+src));document.head.appendChild(s);});
+    (async()=>{for(const s of base)await load(s);for(const s of (window.VR_CONFIG.labFiles||[]))await load(s);for(const s of plat)await load(s);
+      window.VRP.app.start(window.VR_CONFIG);})().catch(e=>{document.getElementById('loading').textContent='שגיאה בטעינה: '+e.message;});})();
+</script>
+</body>
+</html>
