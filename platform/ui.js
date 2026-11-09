@@ -109,7 +109,7 @@ class Button3D{
     this.mat=capMat(col);const cap=this.cap=new T.Mesh(new T.CylinderGeometry(r,r,.016,32),this.mat);cap.rotation.x=PI2;cap.position.z=.016;cap.userData.dyn=true;g.add(cap);
     if(label){const lp=this.lp=textPlane(label,r*1.7,r*1.7,{font:'800 150px Heebo, Arial',w:256,h:256,fg:'#ffffff',rtl:false});lp.position.z=.0246;lp.userData.dyn=true;g.add(lp);}
     this.onPress=onPress;this.lit=lit;this.enabled=enabled;this.down=0;
-    VRP.addInter({obj:g,kind:'press',hx:r*1.15,hy:r*1.15,hz:.03,depth:.008,ctl:this,press:(src)=>{if(!this.enabled())return;this.down=.18;this.onPress&&this.onPress(src);},name});}
+    VRP.addInter({obj:g,kind:'press',hx:r*1.15,hy:r*1.15,hz:.03,depth:.008,ctl:this,press:(src)=>{if(!this.enabled())return;this.down=.18;try{window.APEXSND&&APEXSND.click(.22,'tick');}catch(e){}this.onPress&&this.onPress(src);},name});}
   update(dt){const on=!!this.lit();this.mat.emissiveIntensity=on?.85:.06;this.down=Math.max(0,this.down-dt);this.cap.position.z=this.down>0?.009:.016;if(this.lp)this.lp.position.z=this.cap.position.z+.0086;}
 }
 const PI2=Math.PI/2;

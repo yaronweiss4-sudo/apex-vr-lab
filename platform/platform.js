@@ -57,11 +57,11 @@ function buildRoom(cfg){const S0=app.scene;const S=new T.Group();S.name='room';S
 }
 
 /* ===================== toast (follows the head, lazily) ===================== */
-function buildToast(){const p=app.toastP=new VRP.Panel(.74,.12,{ppm:1000,css:`.root{display:flex;align-items:center;justify-content:center;background:rgba(11,114,217,.95);border-radius:30px;border:3px solid #93c5fd;font-size:40px;font-weight:700;color:#fff;padding:0 26px;text-align:center}`});
+function buildToast(){const p=app.toastP=new VRP.Panel(.5,.09,{ppm:1000,css:`.root{display:flex;align-items:center;justify-content:center;background:rgba(11,114,217,.88);border-radius:24px;border:3px solid #93c5fd;font-size:30px;font-weight:700;color:#fff;padding:0 26px;text-align:center}`});
   p.mesh.material.depthTest=false;p.mesh.renderOrder=20;p.mesh.visible=false;app.scene.add(p.mesh);app.toastUntil=0;}
-app.toast=function(text,ms=4200){const t=String(text);app.toastP.set(VRP.bidi(t.length>110?t.slice(0,108)+'…':t));app.toastUntil=performance.now()+ms;app.toastP.mesh.visible=true;app.toastNew=true;};
+app.toast=function(text,ms=3500){const t=String(text);app.toastP.set(VRP.bidi(t.length>80?t.slice(0,78)+'…':t));app.toastUntil=performance.now()+ms;app.toastP.mesh.visible=true;app.toastNew=true;};
 function updateToast(now){const m=app.toastP.mesh;if(!m.visible)return;const cam=app.camera;const hp=V().setFromMatrixPosition(cam.matrixWorld);const fw=V(0,0,-1).applyQuaternion(cam.getWorldQuaternion(tmpQ));fw.y=0;if(fw.lengthSq()<1e-4)fw.set(0,0,-1);fw.normalize();
-  const target=hp.clone().addScaledVector(fw,.85);target.y=hp.y-.30;if(app.toastNew){m.position.copy(target);app.toastNew=false;}else m.position.lerp(target,.06);m.lookAt(hp.x,m.position.y+.05,hp.z);
+  const rt=new T.Vector3(-fw.z,0,fw.x);const target=hp.clone().addScaledVector(fw,.95).addScaledVector(rt,-.44);target.y=hp.y+.25;if(app.toastNew){m.position.copy(target);app.toastNew=false;}else m.position.lerp(target,.06);m.lookAt(hp);
   const left=app.toastUntil-now;m.material.opacity=clamp(left/500,0,1);if(left<=0)m.visible=false;}
 
 /* ===================== welcome / help panel ===================== */
@@ -73,25 +73,31 @@ function buildWelcome(cfg){const g=app.welcome=new T.Group();app.scene.add(g);
    <div class="r"><span class="i">🔘</span><div><b>לחיצה על כפתור</b> – דחוף אותו עם האצבע, כמו כפתור אמיתי.</div></div>
    <div class="r"><span class="i">🤏</span><div><b>צביטה</b> (אגודל + אצבע) ליד ידית, מחוון או כפתור סיבובי – תופסת אותם. הזז או סובב את היד ושחרר.</div></div>
    <div class="r"><span class="i">🧭</span><div><b>מעבר במעבדה</b> – הלך ברגל, או הצבע על הרצפה וצבוט כדי לקפוץ לשם.</div></div>
-   <div class="r"><span class="i">✋</span><div><b>תפריט</b> – הפוך את כף היד השמאלית כלפיך: מעבר בין עמדות, חזרה לכאן ועוד.</div></div>`);
+   <div class="r"><span class="i">✋</span><div><b>תפריט</b> – הפוך את כף היד השמאלית כלפיך: מעבר בין עמדות, הפעלה/השתקה של צלילים, חזרה לכאן ועוד.</div></div>`);
   g.add(p.mesh);const b=new VRP.Button3D({r:.04,col:0x22c55e,label:'✓',name:'welcome-ok',onPress:()=>{g.visible=false;app.toast('בהצלחה! גשו לעמדה שמולכם',3000);}});b.obj.position.set(0,-.56,.01);g.add(b.obj);app.welcomeBtn=b;
   const bl=VRP.textPlane('הבנתי – מתחילים',.6,.07,{font:'700 54px Heebo, Arial'});bl.position.set(0,-.65,.01);g.add(bl);
   placeWelcome();}
 function placeWelcome(){const s=app.spawn;const g=app.welcome;const fw=V(-Math.sin(s.yaw),0,-Math.cos(s.yaw));const rt=V(Math.cos(s.yaw),0,-Math.sin(s.yaw));
-  g.position.set(s.x,1.5,s.z).addScaledVector(fw,1.45).addScaledVector(rt,-.15);g.lookAt(s.x,1.5,s.z);g.visible=true;}
+  g.position.set(s.x,1.5,s.z).addScaledVector(fw,1.25).addScaledVector(rt,-1.15);g.lookAt(s.x,1.5,s.z);g.visible=true;}
 app.showHelp=()=>{placeWelcome();};
 
 /* ===================== kiosk at the entrance: go to a station ===================== */
-function buildKiosk(cfg){const s=app.spawn;const g=new T.Group();app.scene.add(g);const fw=V(-Math.sin(s.yaw),0,-Math.cos(s.yaw)),rt=V(Math.cos(s.yaw),0,-Math.sin(s.yaw));
-  g.position.set(s.x,0,s.z).addScaledVector(fw,.55).addScaledVector(rt,1.05);g.lookAt(s.x,0,s.z);app.kioskBtns=[];
-  const post=new T.Mesh(new T.BoxGeometry(.08,1.05,.08),new T.MeshStandardMaterial({color:0x2a3442,metalness:.6,roughness:.4}));post.position.y=.52;g.add(post);
-  const head=new T.Group();head.position.set(0,1.12,0);head.rotation.x=-.55;g.add(head);
-  const n=app.stations.length;const H=.16+.075*(n+1);const plate=new T.Mesh(new T.BoxGeometry(.5,H,.03),new T.MeshStandardMaterial({color:0x1f2937,metalness:.5,roughness:.45}));plate.position.y=H/2;head.add(plate);
-  const t=VRP.textPlane('מעבר לעמדה',.4,.06,{font:'800 52px Heebo, Arial'});t.position.set(0,H-.05,.017);head.add(t);
-  [...app.stations.map((st,i)=>[`פרק ${st.lab.ch} · ${st.lab.title}`,()=>app.goStation(i)]),['עזרה – איך משתמשים',()=>app.showHelp()]].forEach(([lab,fn],i)=>{const y=H-.12-i*.075;
-    const b=new VRP.Button3D({r:.02,col:i<n?0x0ea5e9:0x64748b,name:'kiosk'+i,onPress:fn});b.obj.position.set(.19,y,.015);head.add(b.obj);app.kioskBtns.push(b);
-    const tp=VRP.textPlane(lab,.36,.05,{font:'600 40px Heebo, Arial',align:'right',w:900,h:125});tp.position.set(-.03,y,.017);head.add(tp);});}
-
+function buildKiosk(cfg){const s=app.spawn;const g=app.dirG=new T.Group();app.scene.add(g);const fw=V(-Math.sin(s.yaw),0,-Math.cos(s.yaw)),rt=V(Math.cos(s.yaw),0,-Math.sin(s.yaw));
+  g.position.set(s.x,0,s.z).addScaledVector(fw,1.55);g.lookAt(s.x,0,s.z);g.scale.setScalar(1.15);app.kioskBtns=[];
+  /* parts → columns (right to left) */
+  const parts=(cfg.parts||[{t:'',color:'#1d4f86',labs:app.stations.map(st=>st.lab.ch)}]);
+  const colW=.62,W=parts.length*colW+.12,rows=Math.max(...parts.map(p=>p.labs.length)),rowH=.072,H=.30+rows*rowH;
+  const head=new T.Group();head.position.set(0,.55,0);head.rotation.x=-.12;g.add(head);
+  const plate=new T.Mesh(new T.BoxGeometry(W,H,.04),new T.MeshStandardMaterial({color:0x14213a,metalness:.4,roughness:.5}));plate.position.set(0,H/2,-.02);head.add(plate);
+  [-1,1].forEach(sd=>{const leg=new T.Mesh(new T.BoxGeometry(.06,.6,.06),new T.MeshStandardMaterial({color:0x2a3442,metalness:.6,roughness:.4}));leg.position.set(sd*(W/2-.2),-.27,-.02);head.add(leg);});
+  const t=VRP.textPlane('מדריך המעבדות – לחצו על מעבדה כדי לעבור אליה',W-.1,.08,{font:'800 60px Heebo, Arial',w:2400,h:110});t.position.set(0,H-.07,.002);head.add(t);
+  parts.forEach((p,pi)=>{const cx=W/2-.06-colW/2-pi*colW;
+    const pt=VRP.textPlane(p.t,colW-.04,.055,{font:'800 44px Heebo, Arial',w:900,h:80,fg:p.color||'#93c5fd'});pt.position.set(cx,H-.16,.002);head.add(pt);
+    p.labs.forEach((ch,li)=>{const i=app.stations.findIndex(st=>String(st.lab.ch)===String(ch));if(i<0)return;const st=app.stations[i];const y=H-.24-li*rowH;
+      const b=new VRP.Button3D({r:.018,col:parseInt((p.color||'#0ea5e9').slice(1),16),name:'dir'+ch,onPress:()=>app.goStation(i)});b.obj.position.set(cx+colW/2-.04,y,.004);head.add(b.obj);app.kioskBtns.push(b);
+      const tp=VRP.textPlane(`${ch}. ${st.lab.title}`,colW-.1,.05,{font:'600 38px Heebo, Arial',align:'right',w:900,h:72});tp.position.set(cx-.025,y,.002);head.add(tp);});});
+  const hb=new VRP.Button3D({r:.018,col:0x64748b,name:'dir-help',onPress:()=>app.showHelp()});hb.obj.position.set(-W/2+.06,.05,.004);head.add(hb.obj);app.kioskBtns.push(hb);
+  const ht=VRP.textPlane('עזרה',.12,.04,{font:'700 40px Heebo, Arial',w:240,h:80});ht.position.set(-W/2+.15,.05,.002);head.add(ht);}
 /* ===================== teleport ===================== */
 app.headBase=V();app.headYawBase=0;app.worldYaw=0;
 app.teleport=function(x,z,yaw=null){const r=app.renderer;
@@ -102,7 +108,10 @@ app.teleport=function(x,z,yaw=null){const r=app.renderer;
 /* room ↔ tracking-space coordinates (used by the automated tests) */
 app.worldToBase=function(w){const t=app._tp;if(!t)return w.clone();return w.clone().sub(V(t.x,0,t.z)).applyAxisAngle(V(0,1,0),-t.th).add(t.hb);};
 app.goStation=function(i){const st=app.stations[i];if(!st)return;const g=st.group;const yaw=g.rotation.y;const p=V(0,0,1.05).applyAxisAngle(V(0,1,0),yaw).add(g.position);
-  app.later(()=>{app.teleport(p.x,p.z,yaw);app.toast(`📍 פרק ${st.lab.ch} · ${st.sim.t}`,3000);});};
+  app.later(()=>{st.activate();app.teleport(p.x,p.z,yaw);app.toast(`📍 פרק ${st.lab.ch} · ${st.lab.title}`,3000);});};
+app.nearest=function(){const c=V().setFromMatrixPosition(app.camera.matrixWorld);let bi=0,bd=1e9;app.stations.forEach((st,i)=>{const d=st.group.localToWorld(V(0,0,1.05)).distanceTo(c);if(d<bd){bd=d;bi=i;}});return {i:bi,d:bd};};
+function manageStations(){const c=V().setFromMatrixPosition(app.camera.matrixWorld);c.y=0;let did=false;const act=app.stations.filter(s=>s.active).length;
+  app.stations.map((st,i)=>({st,d:st.group.localToWorld(V(0,0,.6)).setY(0).distanceTo(c)})).sort((a,b)=>a.d-b.d).forEach(({st,d},k)=>{if(st.active&&d>(k===0?7:3.4))st.deactivate();else if(!st.active&&!did&&k===0&&d<3.0&&act<2){did=true;app.toast(`⏳ טוען: פרק ${st.lab.ch} · ${st.lab.title}`,2000);app.later(()=>st.activate());}});}
 
 /* ===================== XR session + inputs ===================== */
 function setupXR(){const r=app.renderer,S=app.scene;
@@ -184,6 +193,7 @@ function interactPointer(P,dt){const started=P.pinch&&!P.was,ended=!P.pinch&&P.w
   /* 4 · pinch: near grab, else far (ray) */
   let nearGrab=null,nd=1e9;for(const I of VRP.inter){if(I.kind!=='grab'||!visibleChain(I.obj))continue;const d=distToBox(I,P.pinchPt);if(d<.045&&d<nd){nd=d;nearGrab=I;}if(d<.15)nearSomething=true;}
   if(started&&nearGrab){beginGrab(P,nearGrab,'near',P.pinchPt.clone());return;}
+  if(started&&!nearGrab){const c=compAt(P.pinchPt,.01);if(c){if(!c.st.clickComp(c.id))c.st.touch(c.id);haptic(P,.5,25);return;}}
   /* far pointing: only when the hand is not busy near something */
   const pointing=!nearSomething&&(!P.isHand||handPointsAway(P));
   if(!pointing){if(P.tp){P.tp=null;app.tpMark.visible=false;}return;}
@@ -200,11 +210,14 @@ function showRay(P,len,h){P.line.visible=true;const o=P.ray.origin,d=P.ray.direc
 
 /* ===================== wrist menu (left palm facing you) ===================== */
 function buildWristMenu(cfg){const g=app.wrist=new T.Group();g.visible=false;app.scene.add(g);
-  const items=[...app.stations.map((st,i)=>[`פרק ${st.lab.ch}`,0x0ea5e9,()=>app.goStation(i)]),['נקודת התחלה',0x64748b,()=>app.later(()=>{app.teleport(app.spawn.x,app.spawn.z,app.spawn.yaw);app.toast('🏠 חזרת לנקודת ההתחלה',2500);})],
-    ['שסתומים שקופים',0xf59e0b,()=>{app.xray=!app.xray;app.stations.forEach(s=>VRP.setXray(s.board.comps,app.xray));app.toast(app.xray?'🔍 גוף השסתומים שקוף – רואים את החלקים הפנימיים':'גוף השסתומים אטום',3000);}],
+  const items=[['מדריך המעבדות',0x0ea5e9,()=>app.later(()=>{app.teleport(app.spawn.x,app.spawn.z,app.spawn.yaw);app.toast('🏠 חזרת למדריך המעבדות',2500);})],
+    ['המעבדה הבאה',0x22c55e,()=>{const n=app.nearest();app.goStation((n.d<3?n.i+1:n.i)%app.stations.length);}],
+    ['המעבדה הקודמת',0x22c55e,()=>{const n=app.nearest();app.goStation((n.i-1+app.stations.length)%app.stations.length);}],
+    ['שסתומים שקופים',0xf59e0b,()=>{app.xray=!app.xray;app.stations.forEach(s=>{if(s.board)VRP.setXray(s.board.comps,app.xray);});app.toast(app.xray?'🔍 גוף השסתומים שקוף – רואים את החלקים הפנימיים':'גוף השסתומים אטום',3000);}],
+    ['צלילים',0x14b8a6,()=>{const A=window.APEXSND;if(!A)return;A.setOn(!A.on);app.toast(A.on?'🔊 הצלילים פועלים':'🔇 הצלילים מושתקים',2200);}],
     ['עזרה',0x8b5cf6,()=>app.showHelp()]];
   app.xray=true;const H=.035+items.length*.05;const bg=new T.Mesh(new T.BoxGeometry(.19,H,.01),new T.MeshStandardMaterial({color:0x111827,metalness:.4,roughness:.5,transparent:true,opacity:.92}));bg.position.y=H/2;g.add(bg);
-  items.forEach(([lab,col,fn],i)=>{const y=H-.035-i*.05;const b=new VRP.Button3D({r:.014,col,name:'wrist'+i,onPress:fn,lit:()=>lab==='שסתומים שקופים'&&app.xray});b.obj.position.set(.07,y,.005);g.add(b.obj);app.wristBtns=(app.wristBtns||[]).concat(b);
+  items.forEach(([lab,col,fn],i)=>{const y=H-.035-i*.05;const b=new VRP.Button3D({r:.014,col,name:'wrist'+i,onPress:fn,lit:()=>(lab==='שסתומים שקופים'&&app.xray)||(lab==='צלילים'&&!!(window.APEXSND&&APEXSND.on))});b.obj.position.set(.07,y,.005);g.add(b.obj);app.wristBtns=(app.wristBtns||[]).concat(b);
     const tp=VRP.textPlane(lab,.13,.032,{font:'700 44px Heebo, Arial',align:'right',w:520,h:128});tp.position.set(-.02,y,.0065);g.add(tp);});}
 function updateWrist(){const g=app.wrist;const L=app.ptrs.find(P=>P.ok&&P.isHand&&P.handed==='left');if(!L){g.visible=false;return;}
   const palm=V(0,-1,0).applyQuaternion(L.q);const hp=V().setFromMatrixPosition(app.camera.matrixWorld);const toHead=hp.clone().sub(L.wristPos).normalize();const show=palm.dot(toHead)>.6&&!L.grab;
@@ -223,9 +236,9 @@ function setupDesktop(){const el=app.renderer.domElement;const M=app.mouse={x:0,
     if(h&&h.I){P.pinch=true;}else{M.look=true;M.floorH=h&&h.floor?h:null;}});
   el.addEventListener('pointermove',e=>{const dx=e.movementX||0,dy=e.movementY||0;upd(e);if(Math.hypot(e.clientX-(M.sx||0),e.clientY-(M.sy||0))>4)M.moved=true;
     if(M.look){app.desk.yaw-=dx*.004;app.desk.pitch=clamp(app.desk.pitch-dy*.004,-1.2,1.2);}});
-  el.addEventListener('pointerup',e=>{upd(e);if(M.look){M.look=false;if(!M.moved){const h=rayHit(P.ray,P);if(h&&h.comp)h.comp.st.touch(h.comp.id,'ray');else if(h&&h.floor){app.desk.x=h.point.x;app.desk.z=h.point.z;}}}P.pinch=false;});
+  el.addEventListener('pointerup',e=>{upd(e);if(M.look){M.look=false;if(!M.moved){const h=rayHit(P.ray,P);if(h&&h.comp){h.comp.st.touch(h.comp.id,'ray');h.comp.st.clickComp(h.comp.id);}else if(h&&h.floor){app.desk.x=h.point.x;app.desk.z=h.point.z;}}}P.pinch=false;});
   el.addEventListener('wheel',e=>{e.preventDefault();const f=V(-Math.sin(app.desk.yaw),0,-Math.cos(app.desk.yaw));const s=-Math.sign(e.deltaY)*.25;app.desk.x+=f.x*s;app.desk.z+=f.z*s;},{passive:false});
-  addEventListener('keydown',e=>{keys[e.code]=true;});addEventListener('keyup',e=>{keys[e.code]=false;});}
+  addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyM'&&window.APEXSND){APEXSND.setOn(!APEXSND.on);app.toast(APEXSND.on?'🔊 הצלילים פועלים (M)':'🔇 הצלילים מושתקים (M)',2000);}});addEventListener('keyup',e=>{keys[e.code]=false;});}
 function desktopFrame(dt){const d=app.desk,k=app.keys;const f=V(-Math.sin(d.yaw),0,-Math.cos(d.yaw)),r=V(Math.cos(d.yaw),0,-Math.sin(d.yaw));const sp=2.2*dt;
   if(k.KeyW||k.ArrowUp){d.x+=f.x*sp;d.z+=f.z*sp;}if(k.KeyS||k.ArrowDown){d.x-=f.x*sp;d.z-=f.z*sp;}if(k.KeyA){d.x-=r.x*sp;d.z-=r.z*sp;}if(k.KeyD){d.x+=r.x*sp;d.z+=r.z*sp;}
   if(k.ArrowLeft)d.yaw+=1.6*dt;if(k.ArrowRight)d.yaw-=1.6*dt;const R=app.room;d.x=clamp(d.x,-R.w/2+.4,R.w/2-.4);d.z=clamp(d.z,-R.d/2+.4,R.d/2-.4);
@@ -236,6 +249,12 @@ function desktopFrame(dt){const d=app.desk,k=app.keys;const f=V(-Math.sin(d.yaw)
   else if(started){const h=app.mouse.h;if(h&&h.I){if(h.I.kind==='press'){h.I.press(P);P.pinch=false;}else beginGrab(P,h.I,'ray',h.point);}}
   const hv=rayHit(P.ray,P);app.renderer.domElement.style.cursor=P.grab?'grabbing':hv&&(hv.I)?'pointer':hv&&hv.comp?'help':'default';}
 
+/* ===================== audio listener follows the head ===================== */
+const _lp=new T.Vector3(),_lf=new T.Vector3(),_lu=new T.Vector3();
+function updateListener(){const A=window.APEXSND;if(!A||!A.ready)return;const L=A.ctx().listener;const m=app.camera.matrixWorld;
+  _lp.setFromMatrixPosition(m);_lf.set(0,0,-1).transformDirection(m);_lu.set(0,1,0).transformDirection(m);
+  if(L.positionX){L.positionX.value=_lp.x;L.positionY.value=_lp.y;L.positionZ.value=_lp.z;L.forwardX.value=_lf.x;L.forwardY.value=_lf.y;L.forwardZ.value=_lf.z;L.upX.value=_lu.x;L.upY.value=_lu.y;L.upZ.value=_lu.z;}
+  else{L.setPosition(_lp.x,_lp.y,_lp.z);L.setOrientation(_lf.x,_lf.y,_lf.z,_lu.x,_lu.y,_lu.z);}}
 /* ===================== frame loop ===================== */
 function loop(t,frame){const dt=app._dt!=null?app._dt:(Math.min(.05,app.clock.getDelta())||0);app._dt=null;const now=performance.now();const r=app.renderer;
   if(r.xr.isPresenting&&frame&&app.baseRef){const vp=frame.getViewerPose(app.baseRef);if(vp){const p=vp.transform.position,o=vp.transform.orientation;app.headBase.set(p.x,p.y,p.z);const fw=V(0,0,-1).applyQuaternion(new T.Quaternion(o.x,o.y,o.z,o.w));app.headYawBase=Math.atan2(-fw.x,-fw.z);}
@@ -243,9 +262,10 @@ function loop(t,frame){const dt=app._dt!=null?app._dt:(Math.min(.05,app.clock.ge
     for(const P of app.ptrs){readPointer(P,frame);if(P.ok)interactPointer(P,dt);else{P.line.visible=false;P.cursor.visible=false;}}
     if(!app.ptrs.some(P=>P.tp))app.tpMark.visible=false;updateWrist();}
   else desktopFrame(dt);
+  if(!app._mgT||now-app._mgT>300){app._mgT=now;manageStations();}
   for(const st of app.stations){try{st.update(dt,now);}catch(e){console.warn('station',e);}}
   if(app.welcome.visible)app.welcomeBtn.update(dt);(app.kioskBtns||[]).forEach(b=>b.update(dt));
-  updateToast(now);
+  updateListener();updateToast(now);
   while(app.queue.length){const fn=app.queue.shift();try{fn();}catch(e){console.error(e);}}
   r.render(app.scene,app.camera);}
 })();

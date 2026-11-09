@@ -81,34 +81,45 @@ const CSS_DESK=`.root{background:#0f1726;border-radius:20px}
    Station
    ===================================================================== */
 class Station{
-  constructor(app,cfg,lab){this.app=app;this.cfg=cfg;this.lab=lab;this.id=cfg.id;
+  constructor(app,cfg,lab){this.app=app;this.cfg=cfg;this.lab=lab;this.id=cfg.id;this.active=false;this.compBoxes=null;
     const g=this.group=new T.Group();g.name='station-'+cfg.id;g.position.set(cfg.pos[0],0,cfg.pos[1]);g.rotation.y=cfg.rotY||0;app.scene.add(g);
     this.view={colors:true,parts:true,vals:true};this.hl=new Set();this.hlT={};this.log=[];this.lastAct=null;this.touched=null;this.clock=0;
-    this.schHost=document.createElement('div');Object.assign(this.schHost.style,{position:'fixed',left:'0',top:'0',width:'1200px',height:'900px',pointerEvents:'none',opacity:'0',zIndex:'-1',overflow:'hidden'});document.body.appendChild(this.schHost);
-    this._furniture();this.setSim(cfg.sim||0,true);}
+    this._lite();}
 
-  /* ---------- static furniture ---------- */
-  _furniture(){const g=this.group;const A=this.app;
-    /* rubber floor mat with yellow safety edge */
+  /* ---------- always present (cheap): floor mat, sign, an idle board ---------- */
+  _lite(){const g=this.group;const col=this.cfg.color||'#1d4f86';
     const mat=new T.Mesh(new T.PlaneGeometry(3.6,2.6),new T.MeshStandardMaterial({color:0x1b2230,roughness:.92,metalness:0}));mat.rotation.x=-Math.PI/2;mat.position.set(0,.004,.55);g.add(mat);
     const edge=new T.Mesh(new T.RingGeometry(1,1.04,4,1),new T.MeshBasicMaterial({color:0xfacc15}));edge.rotation.set(-Math.PI/2,0,Math.PI/4);edge.scale.set(1.8*1.414,1.3*1.414,1);edge.position.set(0,.006,.55);g.add(edge);
-    /* footprints: where to stand */
     const fp=VRP.textPlane(['👣  עמדו כאן'],.5,.14,{font:'700 54px Heebo, Arial',fg:'#facc15'});fp.rotation.x=-Math.PI/2;fp.position.set(0,.008,1.05);g.add(fp);
-    /* trainer stand: two posts, feet, top beam */
-    const fm=new T.MeshStandardMaterial({color:0x2a3442,metalness:.6,roughness:.4});
-    this.stand=new T.Group();g.add(this.stand);
-    /* sign above the board */
-    this.sign=new VRP.Panel(1.7,.24,{ppm:700,css:`.root{background:#0b2440;border:3px solid #1d4f86;border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:58px;font-weight:800;color:#fff}.root small{font-size:40px;color:#93c5fd;font-weight:600;margin-inline-start:18px}`});
-    g.add(this.sign.mesh);this._fm=fm;
-    /* left: messages + readouts. right: schematic + desk */
+    this._fm=new T.MeshStandardMaterial({color:0x2a3442,metalness:.6,roughness:.4});
+    this.sign=new VRP.Panel(1.9,.26,{ppm:650,css:`.root{background:#0b2440;border:4px solid ${col};border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:56px;font-weight:800;color:#fff;white-space:nowrap}.root small{font-size:38px;color:#93c5fd;font-weight:600;margin-inline-start:16px}`});
+    this.sign.mesh.position.set(0,2.3,0);g.add(this.sign.mesh);
+    this.sign.set(`<span>פרק ${this.lab.ch} · ${this.lab.title}</span>`);
+    /* idle look: an empty trainer frame – replaced by the real board when you come close */
+    const ghost=this.ghost=new T.Group();g.add(ghost);
+    const gb=new T.Mesh(new T.BoxGeometry(1.4,1.1,.04),new T.MeshStandardMaterial({color:0x9aa5b4,metalness:.5,roughness:.5}));gb.position.set(0,1.38,-.02);ghost.add(gb);
+    [-1,1].forEach(sd=>{const p=new T.Mesh(new T.BoxGeometry(.05,2.0,.05),this._fm);p.position.set(sd*.74,1.0,-.04);ghost.add(p);});
+    const hint=VRP.textPlane(['התקרבו – העמדה תיטען'],1.1,.12,{font:'700 60px Heebo, Arial',fg:'#0b2440'});hint.position.set(0,1.38,.005);ghost.add(hint);
+    VRP.mergeStatic(ghost,new Set([hint]));}
+
+  /* ---------- full station: built when you come close, removed when you walk away ---------- */
+  activate(){if(this.active)return;this.active=true;const g=this.group;this.ghost.visible=false;
+    const H=this.heavy=new T.Group();g.add(H);
+    this.schHost=document.createElement('div');Object.assign(this.schHost.style,{position:'fixed',left:'0',top:'0',width:'1200px',height:'900px',pointerEvents:'none',opacity:'0',zIndex:'-1',overflow:'hidden'});document.body.appendChild(this.schHost);
+    this.stand=new T.Group();H.add(this.stand);
     const yaw=.42;
-    this.msg=new VRP.Panel(.95,.92,{ppm:1050,css:CSS_MSG});this.msg.mesh.position.set(-1.33,1.62,.32);this.msg.mesh.rotation.y=yaw;g.add(this.msg.mesh);
-    this.read=new VRP.Panel(.95,.5,{ppm:1050,css:CSS_READ});this.read.mesh.position.set(-1.33,.88,.32);this.read.mesh.rotation.y=yaw;g.add(this.read.mesh);
-    this.schT=new SvgTex(1400,1000);const sp=new T.Mesh(new T.PlaneGeometry(.98,.7),new T.MeshBasicMaterial({map:this.schT.tex,toneMapped:false}));sp.position.set(1.36,1.98,.22);sp.rotation.y=-yaw;g.add(sp);this.schMesh=sp;
-    const sl=VRP.textPlane(['שרטוט ISO – מתעדכן בזמן אמת'],.6,.06,{font:'600 40px Heebo, Arial',fg:'#93c5fd'});sl.position.set(1.36,2.37,.22);sl.rotation.y=-yaw;g.add(sl);
-    /* the control desk (filled per simulation) */
-    this.desk=new T.Group();this.desk.position.set(1.3,0,.42);this.desk.rotation.y=-yaw;g.add(this.desk);
-  }
+    this.msg=new VRP.Panel(.95,.92,{ppm:1050,css:CSS_MSG});this.msg.mesh.position.set(-1.33,1.62,.32);this.msg.mesh.rotation.y=yaw;H.add(this.msg.mesh);
+    this.read=new VRP.Panel(.95,.5,{ppm:1050,css:CSS_READ});this.read.mesh.position.set(-1.33,.88,.32);this.read.mesh.rotation.y=yaw;H.add(this.read.mesh);
+    this.schT=new SvgTex(1400,1000);const sp=new T.Mesh(new T.PlaneGeometry(.98,.7),new T.MeshBasicMaterial({map:this.schT.tex,toneMapped:false}));sp.position.set(1.36,1.98,.22);sp.rotation.y=-yaw;H.add(sp);this.schMesh=sp;
+    const sl=VRP.textPlane(['שרטוט ISO – מתעדכן בזמן אמת'],.6,.06,{font:'600 40px Heebo, Arial',fg:'#93c5fd'});sl.position.set(1.36,2.37,.22);sl.rotation.y=-yaw;H.add(sl);
+    this.desk=new T.Group();this.desk.position.set(1.3,0,.42);this.desk.rotation.y=-yaw;H.add(this.desk);
+    this.setSim(this.si??(this.cfg.sim||0),true);}
+  deactivate(){if(!this.active)return;this.active=false;if(this.snd){this.snd.stop();this.snd=null;}
+    VRP.removeInterOf(this.group);(this.bindObjs||[]).forEach(o=>{o.parent&&o.parent.remove(o);});this.bindObjs=[];
+    if(this.boardWrap)this.group.remove(this.boardWrap);
+    const dispose=o=>o.traverse(m=>{if(m.geometry)m.geometry.dispose();if(m.material){(Array.isArray(m.material)?m.material:[m.material]).forEach(mt=>{if(mt.map&&mt.map.isCanvasTexture)mt.map.dispose();});}});
+    if(this.board)dispose(this.board.root);dispose(this.heavy);this.group.remove(this.heavy);
+    this.schHost&&this.schHost.remove();this.board=null;this.boardWrap=null;this.heavy=null;this._signIdle();this.compBoxes=null;this.ctrls=[];this.bctrls=[];this.lever=null;this.ghost.visible=true;this.hl.clear();}
 
   /* ---------- simulation ---------- */
   setSim(i,first){this.si=i;this.sim=this.lab.sims[i];this.P=clone(this.sim.P);this.st=this.sim.init?this.sim.init(this.P):{};this.fault=null;this.ckey=null;this.R=null;
@@ -117,6 +128,12 @@ class Station{
     if(!first)this.act(`עברת לסימולציה ${this.sim.n}: ${this.sim.t}`,'🔀');
     else this.lastAct={t:`ברוכים הבאים לעמדה: ${this.sim.t}. גשו ללוח, געו ברכיבים והפעילו את המערכת בידיים.`,ic:'👋',at:performance.now(),intro:true};
     this._msgDirty=true;}
+  /* positional sound from the trainer board (synthesized, see platform/audio.js) */
+  _sound(R,dt){const A=window.APEXSND;if(!A||!A.ready||!this.sch)return;
+    if(!this.snd){const c=A.ctx();const pn=this.panner=c.createPanner();pn.panningModel='HRTF';pn.distanceModel='inverse';pn.refDistance=1.3;pn.rolloffFactor=1.4;pn.maxDistance=30;
+      const w=new T.Vector3(0,1.25,0);this.group.localToWorld(w);if(pn.positionX){pn.positionX.value=w.x;pn.positionY.value=w.y;pn.positionZ.value=w.z;}else pn.setPosition(w.x,w.y,w.z);
+      pn.connect(A.master);this.snd=A.voice(pn);}
+    try{this.snd.update(this.sch.circ.comps,R,dt,!document.hidden);}catch(e){}}
   _ctx(){window.APP=window.APP||{};Object.assign(window.APP,{sim:this.sim,P:this.P,st:this.st,fault:this.fault,R:this.R,mode:'explore'});return window.APP;}
   _step(dt){this.R=this.sim.step(this.P,this.st,dt,{fault:this.fault?this.fault.id:null,mode:'explore'});const R=this.R;R.p=R.p||{};R.q=R.q||{};R.c=R.c||{};}
   /* samples of the circuit state for the moving-part probe */
@@ -128,7 +145,7 @@ class Station{
     schBuild(circ,this.schHost);this.sch={svg:SCH.svg,lines:SCH.lines,comps:SCH.comps,circ:SCH.circ,host:SCH.host,vb:SCH.vb};
     if(this.board){VRP.removeInterOf(this.board.root);this.group.remove(this.boardWrap);this.board.root.traverse(o=>{if(o.geometry)o.geometry.dispose();});}
     (this.bindObjs||[]).forEach(o=>{VRP.removeInterOf(o);o.parent&&o.parent.remove(o);});this.bindObjs=[];
-    const B=this.board=VRP.buildBoard(this.sim,this.P,circ,this.sch,this._samples());
+    const B=this.board=VRP.buildBoard(this.sim,this.P,circ,this.sch,this._samples());if(this.app.xray===false)VRP.setXray(B.comps,false);
     /* scale: fit inside 1.5 m × 1.2 m, bottom edge at 0.80 m */
     const s=this.scale=Math.min(1.5/B.bw,1.2/B.bh,.0042);const wrap=this.boardWrap=new T.Group();wrap.add(B.root);this.group.add(wrap);
     B.root.scale.setScalar(s);B.root.position.set(-B.cx*s,-B.cy*s,0);B.tags.forEach(t=>t.tg.sprite.scale.set(.13/s,.0325/s,1));wrap.position.set(0,.80+B.bh*s/2,0);
@@ -137,7 +154,7 @@ class Station{
     [-1,1].forEach(sd=>{const post=new T.Mesh(new T.BoxGeometry(.05,H+.08,.05),fm);post.position.set(sd*(W/2+.03),(H+.08)/2,-.04);this.stand.add(post);const ft=new T.Mesh(new T.BoxGeometry(.08,.04,.62),fm);ft.position.set(sd*(W/2+.03),.02,-.04);this.stand.add(ft);});
     const shelf=new T.Mesh(new T.BoxGeometry(W+.1,.04,.32),fm);shelf.position.set(0,.62,.06);this.stand.add(shelf);
     const drip=new T.Mesh(new T.BoxGeometry(W*.96,.03,.26),new T.MeshStandardMaterial({color:0x9aa5b4,metalness:.8,roughness:.35}));drip.position.set(0,.655,.06);this.stand.add(drip);
-    this.sign.mesh.position.set(0,H+.24,0);this.boardTop=H;
+    this.sign.mesh.position.set(0,H+.26,0);this.boardTop=H;
     this.group.updateMatrixWorld(true);
     /* component touch boxes (station-local) */
     this.compBoxes={};for(const id in B.comps){const o=B.comps[id];if(o.c.type==='tank'&&false)continue;const bb=new T.Box3().setFromObject(o.g);if(bb.isEmpty())continue;this.compBoxes[id]=bb;}
@@ -235,6 +252,15 @@ class Station{
     this._numPend=null;this.act(`שינית את ${strip(label)} ל-${fmt(+v,3)} ${unit||''}`,'🎚️');}
   touch(id,how='touch'){const c=this.sch.circ.comps.find(c=>c.id===id);if(!c)return;const now=performance.now();if(this.touched&&this.touched.id===id&&now-this.touched.at<1500)return;
     this.touched={id,at:now};this._touchHL(id,4);this._msgDirty=true;const nm=strip(c.name||shortName(c));this.app.toast(`👆 ${nm}`,2600);}
+  clickComp(id){if(!this.active||!this.sim.click)return false;const before=JSON.stringify(this.P);let r=false;this._ctx();try{r=this.sim.click(id,this.P,this.st);}catch(e){console.warn(e);}
+    const A=window.APP;if(A.P&&A.P!==this.P)this.P=A.P;if(A.st&&A.st!==this.st)this.st=A.st;
+    if(!r&&JSON.stringify(this.P)===before)return false;
+    const P0=JSON.parse(before);const ch=Object.keys(this.P).filter(k=>JSON.stringify(this.P[k])!==JSON.stringify(P0[k]));
+    this._changed(true);this._touchHL(id,3);const c=this.sch.circ.comps.find(c=>c.id===id);const nm=c?strip(c.name||shortName(c)):id;
+    const k=ch.find(k=>this._optOf(k,this.P[k]));if(k)this._actSeg(k,this.P[k],'ידית');
+    else{const items=(this.ui||[]).flatMap(g=>g.items);const ck=ch.map(k=>items.find(x=>x.k==='chk'&&x.key===k)).find(Boolean);
+      if(ck)this.act(`${this.P[ck.key]?'הפעלת':'כיבית'}: ${strip(ck.label)}`,'🤏');else this.act(`הפעלת את ${nm}`,'🤏');}
+    return true;}
   _touchHL(id,sec){this.hl.add(id);this.hlT[id]=performance.now()+sec*1000;}
   _changed(rebuild){if(this.sim.onChange)try{this.sim.onChange(this.P,this.st);}catch(e){}
     if(rebuild){const key=this.sim.key?this.sim.key(this.P):'0';if(key!==this.ckey)this.app.later(()=>{this._buildBoard();});}
@@ -242,6 +268,7 @@ class Station{
   reset(){this.P=clone(this.sim.P);this.st=this.sim.init?this.sim.init(this.P):{};this._step(0);this._buildBoard();this._buildDesk();this.act('איפסת את העמדה – כל הערכים חזרו להתחלה','↺');}
 
   _sign(){this.sign.set(`<span>פרק ${this.lab.ch} · ${this.sim.t}</span><small>${this.si+1}/${this.lab.sims.length}</small>`);}
+  _signIdle(){this.sign.set(`<span>פרק ${this.lab.ch} · ${this.lab.title}</span>`);this.sign.mesh.position.set(0,2.3,0);}
   _msgHtml(){const R=this.R,P=this.P,now=performance.now();let h='';
     const a=this.lastAct;if(a){const old=now-a.at>9000&&!a.intro;h+=`<div class="h">הפעולה האחרונה שלך</div><div class="act${old?' old':''}">${a.ic} ${VRP.bidi(a.t)}</div>`;}
     let L=[];try{L=(this.sim.ins?this.sim.ins(P,R,this.st):[])||[];}catch(e){}
@@ -255,10 +282,11 @@ class Station{
     return `<div class="h">מדים ומדידות – בזמן אמת</div><table>${rd.slice(0,7).map(r=>{const u=r.max?clamp(Math.abs(r.v)/r.max,0,1):null;return `<tr class="${r.w?'w':''}"><td>${r.k}</td><td class="v">${fmt(r.v,r.dg??2)} ${r.u||''}</td><td class="b">${u!=null?`<div class="bar"><i style="width:${Math.round(u*100)}%"></i></div>`:''}</td></tr>`;}).join('')}</table>`;}
 
   /* ---------- frame update ---------- */
-  update(dt,now){this.clock+=dt;const n=Math.max(1,Math.ceil(dt/.01));for(let k=0;k<n;k++){try{this._step(dt/n);}catch(e){console.warn(e);break;}}
+  update(dt,now){if(!this.active)return;this.clock+=dt;const n=Math.max(1,Math.ceil(dt/.01));for(let k=0;k<n;k++){try{this._step(dt/n);}catch(e){console.warn(e);break;}}
     const R=this.R;
     /* lever follows the hand while grabbed */
     for(const id in this.hlT)if(now>this.hlT[id]){this.hl.delete(id);delete this.hlT[id];}
+    this._sound(R,dt);
     VRP.updateBoard(this.board,R,dt,this.view,this.hl,this.clock);
     if(this.lever&&this.lever.grab&&this.lever.lv)this.lever.lv.rotation.z=this.lever.ang;
     this.ctrls.forEach(c=>c.update(dt));(this.bctrls||[]).forEach(c=>c.update(dt));
